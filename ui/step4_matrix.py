@@ -37,7 +37,11 @@ def render(llm: LLMClient, retriever: ContextRetriever, sm: SessionManager) -> N
         sm.set("combo_matrix", matrix)
 
     combos: list[ComboModel] = sm.get("combo_matrix", [])
+    combo_ids = {c.id for c in combos}
     prompt_sets = sm.get("prompt_sets", [])
+    # Ignore stale entries left over from a previous selection/run.
+    prompt_sets = [ps for ps in prompt_sets if ps.combo_id in combo_ids]
+    sm.set("prompt_sets", prompt_sets)
     already_done = {ps.combo_id for ps in prompt_sets}
     pending = [c for c in combos if c.id not in already_done]
 
@@ -47,7 +51,8 @@ def render(llm: LLMClient, retriever: ContextRetriever, sm: SessionManager) -> N
         builder = PromptBuilder(llm)
 
         total = len(combos)
-        progress_bar = st.progress(len(prompt_sets) / total if total else 1.0, text="Building prompts...")
+        done = len(already_done)
+        progress_bar = st.progress(done / total if total else 1.0, text="Building prompts...")
         status_text = st.empty()
         preview_container = st.container()
 
@@ -68,7 +73,7 @@ def render(llm: LLMClient, retriever: ContextRetriever, sm: SessionManager) -> N
             )
             prompt_sets.append(ps)
             sm.set("prompt_sets", prompt_sets)
-            done = len(prompt_sets)
+            done += 1
             progress_bar.progress(done / total, text=f"Prompt {done}/{total}: {combo.persona.name}")
             status_text.caption(f"Hook: {combo.hooks_text[:60]}...")
 
@@ -81,11 +86,13 @@ def render(llm: LLMClient, retriever: ContextRetriever, sm: SessionManager) -> N
         excel_rows = _build_excel_rows(combos, sm.get("prompt_sets", []), sm.get("client_name", ""))
         sm.set("excel_rows", excel_rows)
 
-        if len(sm.get("prompt_sets", [])) == len(combos):
-            st.success(f"All {len(prompt_sets)} prompts generated across {len(combos)} combinations.")
+        if done == len(combos):
+            st.success(f"All {done} prompts generated across {len(combos)} combinations.")
 
     else:
         st.success(f"All {len(prompt_sets)} prompts ready.")
+
+    n_done = len({ps.combo_id for ps in sm.get("prompt_sets", [])})
 
     st.divider()
     col_back, col_next = st.columns([1, 1])
@@ -94,7 +101,7 @@ def render(llm: LLMClient, retriever: ContextRetriever, sm: SessionManager) -> N
         st.rerun()
     if col_next.button(
         "Export to Excel →",
-        disabled=len(sm.get("prompt_sets", [])) < len(combos),
+        disabled=n_done < len(combos),
         type="primary",
     ):
         sm.advance_step()
