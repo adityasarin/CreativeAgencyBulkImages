@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from pathlib import Path
@@ -49,36 +50,26 @@ class PromptBuilder:
         return s
 
     def _parse(self, raw: str, combo_id: str) -> PromptSetModel:
-        # Split on Unicode circled numbers ①②③④
-        sections = re.split(r"[①②③④]", raw)
-        # sections[0] = preamble (ignore), [1]=brief, [2]=prompt, [3]=negative, [4]=metadata
-
-        brief = sections[1].strip() if len(sections) > 1 else ""
-        prompt = sections[2].strip().strip('"').strip() if len(sections) > 2 else raw.strip()
-        neg_block = sections[3].strip() if len(sections) > 3 else ""
-        meta_block = sections[4] if len(sections) > 4 else ""
-
-        negative = re.sub(r"(?i)negative\s*prompt\s*[:\-]?\s*", "", neg_block).strip()
+        text = raw.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+        data = json.loads(text)
+        meta = data.get("metadata", {})
+        palette = meta.get("dominant_palette", "")
+        if isinstance(palette, list):
+            palette = ", ".join(palette)
 
         return PromptSetModel(
             combo_id=combo_id,
-            creative_brief=brief,
-            prompt=prompt,
-            negative_prompt=negative,
-            brand_name=self._extract_meta(meta_block, "Brand Name"),
-            dominant_palette=self._extract_meta(meta_block, "Dominant Palette"),
-            emotional_register=self._extract_meta(meta_block, "Emotional Register"),
-            composition_type=self._extract_meta(meta_block, "Composition Type"),
-            cta_zone=self._extract_meta(meta_block, "Recommended CTA Overlay Zone"),
-            brand_alignment=self._extract_meta(meta_block, "Brand Alignment"),
-            product_placement_zone=self._extract_meta(meta_block, "Product Placement Zone"),
-            post_production_notes=self._extract_meta(meta_block, "Post-Production Notes"),
+            creative_brief=data.get("creative_brief_summary", ""),
+            prompt=data.get("image_generation_prompt", ""),
+            negative_prompt=data.get("negative_prompt", ""),
+            brand_name=meta.get("brand_name", ""),
+            dominant_palette=palette,
+            emotional_register=meta.get("emotional_register", ""),
+            composition_type=meta.get("composition_type", ""),
+            cta_zone=meta.get("recommended_cta_overlay_zone", ""),
+            brand_alignment=meta.get("brand_alignment", ""),
+            product_placement_zone=meta.get("product_placement_zone", ""),
+            post_production_notes=meta.get("post_production_notes", ""),
         )
-
-    @staticmethod
-    def _extract_meta(block: str, key: str) -> str:
-        pattern = rf"—\s*{re.escape(key)}\s*:\s*(.+?)(?=\n\s*—|\Z)"
-        m = re.search(pattern, block, re.DOTALL | re.IGNORECASE)
-        if m:
-            return m.group(1).strip()
-        return ""

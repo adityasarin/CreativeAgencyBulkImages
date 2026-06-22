@@ -38,6 +38,7 @@ Step 1 — VISUAL CONCEPT DEVELOPMENT
 
 Step 2 — PERSONA-DRIVEN AESTHETIC CALIBRATION
   - Every visual decision (color palette, texture, styling, props) must be traceable to the persona's world.
+  - Mine the persona description (INPUT 1) for concrete, specific signals — age range, life stage, daily context, values, aspirations — and translate at least 2-3 of them into literal visual details (setting, props, styling, color cues) rather than generic mood. The goal: a member of this exact audience should recognise their own life in the image within 0.3 seconds, which drives the like/save/share engagement that signals Instagram's algorithm to keep showing this ad to more of that same audience.
   - Cross-reference the brand's stated color palette, material signature, and lifestyle positioning from the Brand & Product Context. The persona's world and the brand's world must visibly intersect in every visual element.
   - Ask: "Would this person save this image to their phone AND immediately associate it with this brand's product?" If yes, proceed.
   - Define: dominant color palette (2–3 colors max, drawn from or harmonising with brand palette), surface textures, lifestyle cues, aspirational vs. authentic register.
@@ -125,10 +126,11 @@ OUTPUT RULES:
   — Do not wrap the JSON in ```json fences — return raw JSON only.
 
 ###QUALITY GATES###
-Before finalising output, the model must silently verify all 6 conditions are met:
+Before finalising output, the model must silently verify all 7 conditions are met:
   ☑ Is the composition readable and impactful at 390px wide (iPhone screen thumbnail size)?
   ☑ Does the image communicate the hook without any text?
   ☑ Is every visual element traceable to the persona's world and emotional register?
+  ☑ Does the scene contain at least 2-3 concrete, specific details drawn directly from the persona description (not generic mood) that this exact audience would immediately recognise as "for them"?
   ☑ Is the lower 22% of the frame clear for CTA overlay?
   ☑ Is the brand's product category, color language, material signature, and lifestyle positioning visibly present and traceable to the Brand & Product Context — such that the brand name in post-production text feels earned, not grafted on?
   ☑ If a Product Visual Reference was provided: Is there a clearly defined, uncluttered compositing zone in the correct frame region, with a contrasting background colour, consistent lighting direction, and no competing focal elements — such that placing the real product image into that zone will look natural and intentional, not pasted?
