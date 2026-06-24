@@ -4,6 +4,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from core import generation_guard
 from core.models import GenerationResultModel
 from core.report_generator import ReportGenerator
 from core.session_manager import SessionManager
@@ -22,6 +23,20 @@ def render(sm: SessionManager) -> None:
     client_name = sm.get("client_name", "client")
     product_image = sm.get("product_image", None)
 
+    # ── Orphaned job guard ────────────────────────────────────────────────────
+    active_id = generation_guard.active_campaign_id()
+    if active_id and active_id != sm.get("campaign_id"):
+        st.error(
+            "A previous image-generation job is still running in the background "
+            f"(campaign `{active_id}`), likely left over from a 'Start Over' or a stop "
+            "that didn't take effect. Starting a new job now would run two batches at "
+            "once and double your API usage."
+        )
+        if st.button("Force-stop the orphaned job", type="primary"):
+            generation_guard.stop_active()
+            st.rerun()
+        return
+
     # ── Start generation ──────────────────────────────────────────────────────
     if not sm.get("generation_running") and not sm.get("generation_complete"):
         already_done_ids = {r.row_id for r in sm.get("generation_results", []) if r.status == "success"}
@@ -39,6 +54,13 @@ def render(sm: SessionManager) -> None:
 
         campaign_id = sm.get("campaign_id") or __import__("uuid").uuid4().hex
         sm.set("campaign_id", campaign_id)
+
+        stop_event = generation_guard.try_start(campaign_id)
+        if stop_event is None:
+            st.error("Another generation job claimed the run slot just now. Please retry.")
+            return
+        sm.set("gen_stop_event", stop_event)
+
         try:
             db_manager.insert_campaign(
                 campaign_id, client_name,
@@ -69,15 +91,18 @@ def render(sm: SessionManager) -> None:
                 except Exception:
                     pass
 
-            results = runner.run(
-                rows=rows_to_process,
-                output_dir=output_dir,
-                progress_callback=on_result,
-                stop_check=sm.is_stop_requested,
-                product_image=product_image,
-            )
+            try:
+                results = runner.run(
+                    rows=rows_to_process,
+                    output_dir=output_dir,
+                    progress_callback=on_result,
+                    stop_check=lambda: stop_event.is_set() or sm.is_stop_requested(),
+                    product_image=product_image,
+                )
+            finally:
+                generation_guard.finish(campaign_id)
             st.session_state["generation_running"] = False
-            st.session_state["generation_complete"] = not sm.is_stop_requested()
+            st.session_state["generation_complete"] = not stop_event.is_set()
 
         t = threading.Thread(target=_run, daemon=True)
         t.start()

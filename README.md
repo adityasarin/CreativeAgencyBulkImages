@@ -65,7 +65,7 @@ AI_BulkImageGen/
 │
 ├── image_gen/                # Image generation
 │   ├── base_provider.py
-│   ├── dalle_provider.py     # DALL-E 3 (OpenAI)
+│   ├── gpt_image_provider.py # gpt-image-2 (OpenAI)
 │   ├── provider_factory.py
 │   ├── compositor.py         # Product compositing helpers
 │   └── batch_runner.py       # Parallel generation worker
